@@ -94,6 +94,16 @@ export function runC(source, opts = {}) {
     result.timeMs = Date.now() - t0;
     return result;
   }
+  if (opts.trace) {
+    result.trace = [];
+    const max = opts.traceLimit || 400;
+    M.tracer = () => {
+      if (result.trace.length >= max) return;
+      const fr = M.frames[M.frames.length - 1];
+      if (!fr) return;
+      result.trace.push({ line: M.line, fn: fr.fn.name, depth: M.frames.length, stack: M.frames.map((f) => f.fn.name), vars: snapshot(M, fr), out: M.out.length });
+    };
+  }
   try {
     result.exitCode = program.run();
   } catch (e) {
@@ -121,6 +131,90 @@ export function runC(source, opts = {}) {
   result.steps = M.steps;
   result.timeMs = Date.now() - t0;
   return result;
+}
+
+function readValue(M, t, a, depth = 0) {
+  const sh = M.sh[a];
+  const ok = (n) => { for (let k = 0; k < n; k++) { const s = M.sh[a + k]; if (s !== 1 && s !== 5) return false; } return true; };
+  if (t.k === 'int' || t.k === 'enum') {
+    if (!ok(t.size || 4)) return { text: '?', uninit: true };
+    const dv = M.dv;
+    let v;
+    const size = t.size || 4;
+    if (size === 1) v = t.signed === false ? dv.getUint8(a) : dv.getInt8(a);
+    else if (size === 2) v = t.signed ? dv.getInt16(a, true) : dv.getUint16(a, true);
+    else if (size === 4) v = t.signed === false ? dv.getUint32(a, true) : dv.getInt32(a, true);
+    else v = t.signed ? dv.getBigInt64(a, true) : dv.getBigUint64(a, true);
+    if (t.name === 'char' || t.name === 'unsigned char') {
+      const c = Number(v);
+      const ch = c === 0 ? "'\\0'" : c === 10 ? "'\\n'" : c >= 32 && c < 127 ? `'${String.fromCharCode(c)}'` : String(c);
+      return { text: ch, num: c };
+    }
+    if (t.name === '_Bool') return { text: v ? 'true (1)' : 'false (0)' };
+    return { text: String(v) };
+  }
+  if (t.k === 'float') {
+    if (!ok(t.size)) return { text: '?', uninit: true };
+    const v = t.size === 4 ? M.dv.getFloat32(a, true) : M.dv.getFloat64(a, true);
+    return { text: Number.isInteger(v) ? v.toFixed(1) : String(t.size === 4 ? Number(v.toPrecision(7)) : v) };
+  }
+  if (t.k === 'ptr') {
+    if (sh === 4 || !ok(8)) return { text: '?', uninit: true };
+    const v = M.dv.getUint32(a, true) + M.dv.getUint32(a + 4, true) * 4294967296;
+    if (v === 0) return { text: 'NULL', ptr: 0 };
+    const d = M.describe(v);
+    let target = d.name ? d.name.replace(/[«»]/g, '').trim() : '';
+    if (d.start !== undefined && v !== d.start && d.type && d.type.k === 'array') target += `[${Math.floor((v - d.start) / d.type.of.size)}]`;
+    else if (d.start !== undefined && v !== d.start) target += ` + ${v - d.start}`;
+    if (v >= 0x1000 && v < 0x8000) target = 'fonction';
+    return { text: '0x' + v.toString(16), ptr: v, target };
+  }
+  if (t.k === 'array') {
+    if (depth > 1) return { text: '[…]' };
+    const n = t.len ?? 0;
+    if (t.of.k === 'int' && t.of.size === 1 && ok(1)) {
+      const bytes = [];
+      for (let k = 0; k < n && k < 64; k++) { if (!ok.call(null, 1)) break; const b = M.u8[a + k]; if (b === 0) break; bytes.push(b); }
+      const items = [];
+      for (let k = 0; k < Math.min(n, 16); k++) items.push(readValue(M, t.of, a + k * t.of.size, depth + 1).text);
+      return { text: JSON.stringify(decoder.decode(new Uint8Array(bytes))), items, array: true };
+    }
+    const items = [];
+    for (let k = 0; k < Math.min(n, 16); k++) items.push(readValue(M, t.of, a + k * t.of.size, depth + 1).text);
+    return { text: `{${items.join(', ')}${n > 16 ? ', …' : ''}}`, items, array: true };
+  }
+  if (t.k === 'struct') {
+    if (depth > 1 || !t.fields) return { text: '{…}' };
+    const fields = t.fields.map((f) => ({ name: f.name, ...readValue(M, f.type, a + f.offset, depth + 1) }));
+    return { text: `{${fields.map((f) => `.${f.name}=${f.text}`).join(', ')}}`, fields };
+  }
+  return { text: '' };
+}
+
+function typeLabel(t) {
+  if (!t) return '';
+  if (t.k === 'ptr') return typeLabel(t.to) + ' *';
+  if (t.k === 'array') return `${typeLabel(t.of)}[${t.len ?? ''}]`;
+  if (t.k === 'struct') return `struct ${t.tag || ''}`.trim();
+  return (t.const ? 'const ' : '') + (t.name || t.k);
+}
+
+function snapshot(M, fr) {
+  const vars = [];
+  for (const l of fr.fn.locals) {
+    if (l.name.startsWith('<')) continue;
+    const a = fr.fp + l.offset;
+    if (l.vlaOf) {
+      const base = Number(M.dv.getBigUint64(a, true));
+      const bytes = Number(M.dv.getBigUint64(a + 8, true));
+      if (!base) { vars.push({ name: l.name, type: typeLabel(l.vlaOf), text: '?', uninit: true, addr: a }); continue; }
+      const t = { ...l.vlaOf, len: Math.floor(bytes / l.vlaOf.of.size) };
+      vars.push({ name: l.name, type: typeLabel(t), addr: base, ...readValue(M, t, base) });
+      continue;
+    }
+    vars.push({ name: l.name, type: typeLabel(l.type), addr: a, ...readValue(M, l.type, a) });
+  }
+  return vars;
 }
 
 /** Compile seulement (vérification rapide pendant la frappe). */

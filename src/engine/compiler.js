@@ -1514,8 +1514,8 @@ export function compileProgram(units, M, diag) {
         loopDepth.loop--;
         return () => {
           for (;;) {
-            M.tick();
             M.line = line;
+            M.tick();
             if (!c()) return 0;
             const s = body();
             if (s === BREAK) return 0;
@@ -1531,6 +1531,7 @@ export function compileProgram(units, M, diag) {
         const c = truthy(expr(node.cond));
         return () => {
           for (;;) {
+            M.line = line;
             M.tick();
             const s = body();
             if (s === BREAK) return 0;
@@ -1559,8 +1560,8 @@ export function compileProgram(units, M, diag) {
           M.line = line;
           if (init) init();
           for (;;) {
-            M.tick();
             M.line = line;
+            M.tick();
             if (c && !c()) return 0;
             const s = body();
             if (s === BREAK) return 0;

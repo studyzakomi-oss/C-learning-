@@ -75,6 +75,7 @@ export class Machine {
 
   // ---------- exécution ----------
   tick() {
+    if (this.tracer) this.tracer();
     if (++this.steps > this.maxSteps) this.tooLong();
     if ((this.steps & 0xFFFF) === 0 && Date.now() > this.deadline) this.tooLong();
   }
