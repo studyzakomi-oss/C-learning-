@@ -1,0 +1,8 @@
+services:
+  c-quest:
+    build: .
+    image: c-quest:latest
+    container_name: c-quest
+    ports:
+      - "8090:80"
+    restart: unless-stopped

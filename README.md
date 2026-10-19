@@ -140,3 +140,14 @@ Aucun. Pas de serveur, pas de service de compilation distant, pas d'API payante,
 la compilation et l'exécution se font sur l'appareil. Seul un hébergement statique est nécessaire pour la
 version PWA (gratuit chez GitHub Pages, Netlify ou Cloudflare Pages). Une publication sur le Play Store
 coûte 25 USD une fois (frais d'inscription Google).
+
+## Héberger sur un serveur Debian (Docker / CasaOS)
+
+```bash
+git clone <ce-depot> c-quest && cd c-quest
+docker compose up -d --build      # le jeu est servi sur http://<ip-du-serveur>:8090
+```
+
+Mise à jour : `git pull && docker compose up -d --build`. Le jeu fonctionne dès le premier chargement ;
+pour l'**installer** comme application et l'utiliser hors-ligne, le navigateur exige du HTTPS (voir
+ci-dessous : Tailscale ou un nom de domaine avec Caddy / Nginx Proxy Manager).
