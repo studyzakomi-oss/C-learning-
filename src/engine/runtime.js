@@ -255,8 +255,16 @@ export class Machine {
     this.checkSlow(a, size, write);
   }
 
-  readBytes(a, n) {
+  readBytes(a, n, quiet = false) {
     if (n === 0) return new Uint8Array(0);
+    if (quiet) {
+      // copie d'un bloc (structure) : les octets non initialisés (bourrage, fin de chaîne) ne sont pas une erreur
+      for (let k = 0; k < n; k++) {
+        const s = this.sh[a + k];
+        if (s !== SH_OK && s !== SH_RODATA && s !== SH_UNINIT) this.checkSlow(a + k, 1, false);
+      }
+      return this.u8.slice(a, a + n);
+    }
     this.chk(a, n, false);
     if (n > 2) this.checkSlow(a, n, false);
     return this.u8.slice(a, a + n);

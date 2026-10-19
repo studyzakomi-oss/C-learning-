@@ -129,7 +129,7 @@ export function sameType(a, b) {
     case 'void': return true;
     case 'int': case 'float': return a.name === b.name;
     case 'enum': return true;
-    case 'struct': return a.id === b.id;
+    case 'struct': return a.id === b.id || sameStructure(a, b);
     case 'ptr': return sameType(a.to, b.to) && !!a.to.const === !!b.to.const;
     case 'array': return sameType(a.of, b.of) && (a.len == null || b.len == null || a.len === b.len);
     case 'func':
@@ -139,6 +139,22 @@ export function sameType(a, b) {
       return a.params.every((p, i) => sameType(unqual(p), unqual(b.params[i])));
   }
   return false;
+}
+
+const comparing = new Set();
+/** Compatibilité entre unités de traduction : même étiquette et mêmes champs. */
+function sameStructure(a, b) {
+  if (!!a.union !== !!b.union || (a.tag || null) !== (b.tag || null)) return false;
+  if (!a.complete || !b.complete) return !!a.tag && a.tag === b.tag;
+  if (a.fields.length !== b.fields.length) return false;
+  const key = a.id < b.id ? `${a.id}:${b.id}` : `${b.id}:${a.id}`;
+  if (comparing.has(key)) return true;
+  comparing.add(key);
+  try {
+    return a.fields.every((f, i) => f.name === b.fields[i].name && sameType(f.type, b.fields[i].type));
+  } finally {
+    comparing.delete(key);
+  }
 }
 
 /** Ignore const pour comparer les types pointés. */

@@ -39,6 +39,11 @@ export function buildSource(ex, sub) {
   }
 }
 
+/** Programme complet à compiler : main.c seul, ou avec les fichiers fournis par l'exercice. */
+export function programFiles(ex, mainSource) {
+  return ex.files ? { ...ex.files, 'main.c': mainSource } : mainSource;
+}
+
 /** Solution de référence d'un exercice. */
 export function referenceSource(ex) {
   if (ex.mode === 'complete') {
@@ -74,7 +79,7 @@ export async function expectedOutputs(ex, run) {
     const key = ref + '\u0000' + (t.stdin || '') + '\u0000' + JSON.stringify(t.files || {});
     let r = refCache.get(key);
     if (!r) {
-      r = await run(ref, { stdin: t.stdin || '', dataFiles: t.files || {} });
+      r = await run(programFiles(ex, ref), { stdin: t.stdin || '', dataFiles: t.files || {} });
       if (!r.compiled || r.runtimeError) {
         throw new Error(`Solution de référence invalide pour ${ex.id} : ${r.runtimeError?.message || r.diagnostics?.[0]?.message}`);
       }
@@ -109,7 +114,7 @@ export async function gradeExercise(ex, sub, run) {
   let stage = 'ok';
   for (let i = 0; i < tests.length; i++) {
     const t = tests[i];
-    const r = await run(source, { stdin: t.stdin || '', dataFiles: t.files || {} });
+    const r = await run(programFiles(ex, source), { stdin: t.stdin || '', dataFiles: t.files || {} });
     if (!firstRun) firstRun = r;
     if (!r.compiled) {
       return { passed: false, stage: 'compile', source, run: r, diagnostics: r.diagnostics, tests: [], ruleFailures: [] };

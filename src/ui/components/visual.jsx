@@ -4,13 +4,13 @@ import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
 import { CodeView } from './text.jsx';
 import { runProgram } from '../engine-client.js';
 
-export function TraceViewer({ code, stdin = '', files, note }) {
+export function TraceViewer({ code, stdin = '', files, sources, note }) {
   const [res, setRes] = useState(null);
   const [i, setI] = useState(0);
   const [play, setPlay] = useState(false);
   useEffect(() => {
     let live = true;
-    runProgram(code, { stdin, dataFiles: files || {}, trace: true, traceLimit: 300 }).then((r) => {
+    runProgram(sources ? { ...sources, 'main.c': code } : code, { stdin, dataFiles: files || {}, trace: true, traceLimit: 300 }).then((r) => {
       if (!live) return;
       // fusionne les étapes identiques consécutives
       const steps = [];

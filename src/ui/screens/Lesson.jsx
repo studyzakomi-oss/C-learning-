@@ -15,13 +15,13 @@ import { runProgram } from '../engine-client.js';
 
 const STEPS = ['Objectif', 'Explication simple', 'Syntaxe générale', 'Exemple commenté', 'Visualisation', 'Erreur fréquente', 'Exercice guidé', 'Mission autonome', 'Quiz rapide', 'Résumé'];
 
-function RunBlock({ code, stdin, files, label = '▶ Exécuter cet exemple' }) {
+function RunBlock({ code, stdin, files, sources, label = '▶ Exécuter cet exemple' }) {
   const [r, setR] = useState(null);
   const [busy, setBusy] = useState(false);
   return (
     <div class="stack">
       <div class="row">
-        <button class="btn small primary" disabled={busy} onClick={async () => { setBusy(true); setR(await runProgram(code, { stdin: stdin || '', dataFiles: files || {} })); setBusy(false); }}>{label}</button>
+        <button class="btn small primary" disabled={busy} onClick={async () => { setBusy(true); setR(await runProgram(sources ? { ...sources, 'main.c': code } : code, { stdin: stdin || '', dataFiles: files || {} })); setBusy(false); }}>{label}</button>
         {stdin && <span class="small faint">Entrée utilisée : <code class="inline-code">{stdin.trim().replace(/\n/g, ' ⏎ ')}</code></span>}
       </div>
       {(r || busy) && <ConsoleView result={r} running={busy} />}
@@ -118,14 +118,17 @@ export function LessonScreen({ id, step }) {
               <><span class="k" onClick={() => setHl([+n])} role="button" tabIndex={0} key={'k' + n}>L{n}</span><span onClick={() => setHl([+n])} key={'t' + n}><Inline text={txt} /></span></>
             ))}
           </div>
-          <RunBlock code={l.exemple.code} stdin={l.exemple.stdin} files={l.exemple.files} />
+          {l.exemple.sources && Object.entries(l.exemple.sources).map(([name, src]) => (
+            <details class="fold" open key={name}><summary>📄 {name}</summary><CodeView code={src} /></details>
+          ))}
+          <RunBlock code={l.exemple.code} stdin={l.exemple.stdin} files={l.exemple.files} sources={l.exemple.sources} />
           <a class="btn small ghost" href="#/sandbox" onClick={() => store.setSandbox({ code: l.exemple.code, stdin: l.exemple.stdin || '' })}>🧪 Modifier cet exemple dans le labo</a>
         </div>
       );
       break;
     case 4:
       body = l.visualisation.kind === 'trace'
-        ? <TraceViewer code={l.visualisation.code || l.exemple.code} stdin={l.visualisation.stdin ?? l.exemple.stdin ?? ''} files={l.visualisation.files || l.exemple.files} note={l.visualisation.note} />
+        ? <TraceViewer code={l.visualisation.code || l.exemple.code} sources={l.visualisation.code ? null : l.exemple.sources} stdin={l.visualisation.stdin ?? l.exemple.stdin ?? ''} files={l.visualisation.files || l.exemple.files} note={l.visualisation.note} />
         : <Md text={l.visualisation.text} />;
       break;
     case 5:

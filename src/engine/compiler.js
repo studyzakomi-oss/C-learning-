@@ -63,6 +63,7 @@ export function compileProgram(units, M, diag) {
   // ---------- portées ----------
   const scopes = [{ vars: new Map(), tags: new Map() }];
   const globalScope = scopes[0];
+  const linkage = new Map(); // variables globales partagées entre fichiers
   const pushScope = () => scopes.push({ vars: new Map(), tags: new Map() });
   const popScope = () => { const s = scopes.pop(); if (fn) for (const sym of s.vars.values()) fn.scopeSyms.push(sym); };
   const lookup = (name) => { for (let i = scopes.length - 1; i >= 0; i--) { const s = scopes[i].vars.get(name); if (s) return s; } return null; };
@@ -98,7 +99,7 @@ export function compileProgram(units, M, diag) {
         return dv.getUint32(a, true) + dv.getUint32(a + 4, true) * TWO32;
       };
     }
-    if (t.k === 'struct') { const n = t.size; return (a) => M.readBytes(a, n); }
+    if (t.k === 'struct') { const n = t.size; return (a) => M.readBytes(a, n, true); }
     return () => undefined;
   }
   function storer(t) {
@@ -682,7 +683,7 @@ export function compileProgram(units, M, diag) {
     const s = E.vt;
     const tt = unqual(target);
     if (tt.k === 'struct') {
-      if (s.k !== 'struct' || s.id !== tt.id) error(node, `types incompatibles ${what} : ${typeName(s)} au lieu de ${typeName(tt)}`, `incompatible types when assigning to type '${typeName(tt)}' from type '${typeName(s)}'`, 'incompatible');
+      if (s.k !== 'struct' || !sameType(s, tt)) error(node, `types incompatibles ${what} : ${typeName(s)} au lieu de ${typeName(tt)}`, `incompatible types when assigning to type '${typeName(tt)}' from type '${typeName(s)}'`, 'incompatible');
       return E.get;
     }
     if (s.k === 'void') error(node, `une valeur void (fonction qui ne renvoie rien) ne peut pas être utilisée ${what}`, 'void value not ignored as it ought to be', 'void-value');
@@ -1383,6 +1384,16 @@ export function compileProgram(units, M, diag) {
       return null;
     }
     scope.vars.set(name, sym);
+    if (isGlobal && spec.storage !== 'static') {
+      const prevLink = linkage.get(name);
+      if (prevLink) {
+        if (!sameType(prevLink.type, t)) error(d, `« ${name} » est déclarée avec des types différents dans deux fichiers`, `conflicting types for '${name}'`, 'conflicting-types');
+        if (ops && prevLink.hasInit) error(d, `« ${name} » est définie (initialisée) dans deux fichiers`, `multiple definition of '${name}'`, 'redefinition');
+        sym.addr = prevLink.addr;
+        if (ops) { prevLink.hasInit = true; const run = makeInitRunner(t, ops); const a = sym.addr; globalInits.push(() => run(a)); }
+        return null;
+      }
+    }
     if (isStatic) {
       if (sym.isExtern && SPECIAL_EXTERNS[name]) {
         sym.addr = M.allocStatic(8, 8);
@@ -1393,6 +1404,7 @@ export function compileProgram(units, M, diag) {
       }
       sym.addr = M.allocStatic(Math.max(t.size, 1), t.align);
       M.globals.push({ name, addr: sym.addr, size: t.size, type: t });
+      if (isGlobal && spec.storage !== 'static') linkage.set(name, { addr: sym.addr, type: t, hasInit: !!ops });
       if (ops) {
         for (const o of ops) {
           if (o.E && !isConstInit(o.E)) error(o.E.node, `l'initialisation d'une variable ${isGlobal ? 'globale' : 'static'} doit être une constante (pas un appel de fonction ni une autre variable)`, 'initializer element is not constant', 'global-init-not-constant');
@@ -1831,6 +1843,7 @@ export function compileProgram(units, M, diag) {
   // ---------- unité de traduction ----------
   for (const unit of units) {
     curFile = unit.file;
+    pushScope(); // portée propre au fichier : typedef, struct, variables static
     for (const item of unit.ast.items) {
       curFile = item.file || unit.file;
       try {
@@ -1840,10 +1853,11 @@ export function compileProgram(units, M, diag) {
           void runs;
         }
       } catch (e) {
-        if (e instanceof CError) { diag.addError(e, curFile); fn = null; while (scopes.length > 1) scopes.pop(); continue; }
+        if (e instanceof CError) { diag.addError(e, curFile); fn = null; while (scopes.length > 2) scopes.pop(); continue; }
         throw e;
       }
     }
+    scopes.length = 1;
   }
 
   // ---------- édition de liens ----------

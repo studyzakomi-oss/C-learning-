@@ -291,6 +291,12 @@ export function Exercise({ ex, onPassed, onFail, compact = false, noReward = fal
       {intro}
       <Md text={ex.prompt} />
       {ex.mode !== 'predict' && <ExpectedOutput ex={ex} />}
+      {ex.files && Object.entries(ex.files).map(([name, content]) => (
+        <details class="fold" key={name}><summary>📄 {name} (fourni, lecture seule)</summary><CodeView code={content} /></details>
+      ))}
+      {ex.tests?.[0]?.files && Object.entries(ex.tests[0].files).map(([name, content]) => (
+        <details class="fold" key={'d' + name}><summary>🗂️ Fichier de données « {name} » (exemple)</summary><pre class="console" style={{ minHeight: 0 }}>{content}</pre></details>
+      ))}
       {ex.mode === 'complete' && <CompleteMode ex={ex} draft={draft} setDraft={setDraft} onSubmit={submit} busy={busy} />}
       {ex.mode === 'order' && <OrderMode ex={ex} draft={draft} setDraft={setDraft} onSubmit={submit} busy={busy} />}
       {ex.mode === 'predict' && <PredictMode ex={ex} draft={draft} setDraft={setDraft} onSubmit={submit} busy={busy} res={res} />}
@@ -301,6 +307,7 @@ export function Exercise({ ex, onPassed, onFail, compact = false, noReward = fal
           reset={ex.mode === 'bug' ? ex.starter : (ex.starter ?? codeInitial)}
           stdin={ex.tests?.[0]?.stdin || ''}
           dataFiles={ex.tests?.[0]?.files}
+          files={ex.files}
           onChange={(c) => setDraft({ code: c })}
           onSubmit={(code) => submit({ code })}
           submitting={busy}

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { runC } from '../src/engine/index.js';
 import { WORLDS, allExercises } from '../src/content/index.js';
-import { gradeExercise, referenceSource, normalizeOutput, buildSource, shuffledOrder } from '../src/game/grader.js';
+import { gradeExercise, referenceSource, normalizeOutput, buildSource, shuffledOrder, programFiles } from '../src/game/grader.js';
 import { PLACEMENT } from '../src/content/placement.js';
 
 const useGcc = !process.argv.includes('--no-gcc');
@@ -18,9 +18,11 @@ const bad = (where, msg) => { problems++; console.log(`✗ ${where} : ${msg}`); 
 
 function gcc(src, stdin = '', files = {}) {
   const dir = mkdtempSync(join(work, 'x'));
-  writeFileSync(join(dir, 'main.c'), src);
+  const sources = typeof src === 'string' ? { 'main.c': src } : src;
+  for (const [n, c] of Object.entries(sources)) writeFileSync(join(dir, n), c);
   for (const [n, c] of Object.entries(files)) writeFileSync(join(dir, n), c);
-  const c = spawnSync('gcc', ['-std=c99', '-Wall', '-Wextra', '-pedantic', 'main.c', '-o', 'prog', '-lm'], { cwd: dir, encoding: 'utf8' });
+  const cfiles = Object.keys(sources).filter((n) => n.endsWith('.c'));
+  const c = spawnSync('gcc', ['-std=c99', '-Wall', '-Wextra', '-pedantic', ...cfiles, '-o', 'prog', '-lm'], { cwd: dir, encoding: 'utf8' });
   if (c.status !== 0) return { ok: false, err: c.stderr };
   const r = spawnSync('./prog', [], { cwd: dir, input: stdin, encoding: 'utf8', timeout: 5000 });
   return { ok: true, warnings: c.stderr, stdout: r.stdout, status: r.status };
@@ -59,7 +61,7 @@ async function checkExercise(e, where) {
   const ref = referenceSource(e);
   if (!ref) return bad(where, 'pas de solution de référence');
   for (const tcase of e.tests?.length ? e.tests : [{}]) {
-    await checkProgram(`${where} (solution, entrée ${JSON.stringify(tcase.stdin || '')})`, ref, { stdin: tcase.stdin || '', files: tcase.files || {} });
+    await checkProgram(`${where} (solution, entrée ${JSON.stringify(tcase.stdin || '')})`, programFiles(e, ref), { stdin: tcase.stdin || '', files: tcase.files || {} });
   }
   let sub;
   if (e.mode === 'complete') sub = { blanks: e.blanks.map((b) => b.answer) };
@@ -92,7 +94,7 @@ for (const w of WORLDS) {
     for (const p of PARTS) if (!l[p]) bad(where, `partie manquante : ${p}`);
     if (l.quiz.length < 3 || l.quiz.length > 5) bad(where, 'le quiz doit avoir 3 à 5 questions');
     for (const [i, q] of l.quiz.entries()) if (!(q.answer >= 0 && q.answer < q.choices.length) || !q.explain) bad(where, `question ${i + 1} invalide`);
-    await checkProgram(`${where} exemple`, l.exemple.code, { stdin: l.exemple.stdin || '', files: l.exemple.files || {} });
+    await checkProgram(`${where} exemple`, l.exemple.sources ? { ...l.exemple.sources, 'main.c': l.exemple.code } : l.exemple.code, { stdin: l.exemple.stdin || '', files: l.exemple.files || {} });
     if (l.visualisation.code) await checkProgram(`${where} visualisation`, l.visualisation.code, { stdin: l.visualisation.stdin || '', files: l.visualisation.files || {} });
     const er = runC(l.erreur.code, { stdin: l.erreur.stdin || '', dataFiles: l.erreur.files || {} });
     checked++;
