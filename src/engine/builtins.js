@@ -465,7 +465,7 @@ export const BUILTINS = {
     const cnt = N(n), sz = N(size), b = N(base);
     if (cnt <= 1) return;
     const items = [];
-    for (let k = 0; k < cnt; k++) items.push(M.readBytes(b + k * sz, sz));
+    for (let k = 0; k < cnt; k++) items.push(M.readBytes(b + k * sz, sz, true));
     if (!M.qsortTmp || M.qsortTmpSize < sz) { M.qsortTmp = M.allocStatic(sz * 2, 16); M.qsortTmpSize = sz; }
     const ta = M.qsortTmp, tb = M.qsortTmp + sz;
     items.sort((x, y) => {
@@ -510,8 +510,8 @@ export const BUILTINS = {
     return k < 0 ? 0 : N(s) + k;
   },
   memset: (M, [s, c, n]) => { M.writeBytes(N(s), new Array(N(n)).fill(c & 255)); return s; },
-  memcpy: (M, [d, s, n]) => { M.writeBytes(N(d), M.readBytes(N(s), N(n))); return d; },
-  memmove: (M, [d, s, n]) => { M.writeBytes(N(d), M.readBytes(N(s), N(n))); return d; },
+  memcpy: (M, [d, s, n]) => { M.writeBytes(N(d), M.readBytes(N(s), N(n), true)); return d; },
+  memmove: (M, [d, s, n]) => { M.writeBytes(N(d), M.readBytes(N(s), N(n), true)); return d; },
   memcmp: (M, [a, b, n]) => {
     const x = M.readBytes(N(a), N(n)), y = M.readBytes(N(b), N(n));
     for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return x[k] - y[k];

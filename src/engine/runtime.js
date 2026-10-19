@@ -314,12 +314,12 @@ export class Machine {
       const kind = h === this.stdoutH ? 'out' : 'err';
       if (kind === 'out') for (const b of bytes) this.out.push(b);
       const last = this.transcript[this.transcript.length - 1];
-      if (last && last.kind === kind) last.bytes.push(...bytes);
-      else this.transcript.push({ kind, bytes: [...bytes] });
+      if (last && last.kind === kind) for (const b of bytes) last.bytes.push(b);
+      else this.transcript.push({ kind, bytes: Array.from(bytes) });
       return;
     }
     const hd = this.handles.get(h);
-    hd.data.push(...bytes);
+    for (const b of bytes) hd.data.push(b);
   }
 
   stdoutText() { return decoder.decode(new Uint8Array(this.out)); }
@@ -338,7 +338,7 @@ export class Machine {
     this.echoPos = end;
     if (!bytes.length) return;
     const last = this.transcript[this.transcript.length - 1];
-    if (last && last.kind === 'in') last.bytes.push(...bytes);
+    if (last && last.kind === 'in') for (const b of bytes) last.bytes.push(b);
     else this.transcript.push({ kind: 'in', bytes });
   }
 
