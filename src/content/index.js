@@ -2,8 +2,12 @@
 import w1 from './worlds/w1.js';
 import w2 from './worlds/w2.js';
 import w3 from './worlds/w3.js';
+import w4 from './worlds/w4.js';
+import w5 from './worlds/w5.js';
+import w6 from './worlds/w6.js';
+import w7 from './worlds/w7.js';
 
-export const WORLDS = [w1, w2, w3];
+export const WORLDS = [w1, w2, w3, w4, w5, w6, w7];
 
 const lessonIndex = new Map();
 const exerciseIndex = new Map();
