@@ -395,3 +395,7 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 }
 @media (max-width: 360px) { .chip.streak { display: none; } }
 @media (max-width: 420px) { .hide-xs { display: none; } }
+@media (max-width: 899px) {
+  .toasts { top: auto; bottom: calc(var(--nav-h) + 12px + var(--safe-b)); align-items: stretch; }
+  .toast { max-width: none; }
+}

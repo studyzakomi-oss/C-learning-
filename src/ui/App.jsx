@@ -38,7 +38,7 @@ function Toasts() {
     let text = n.text;
     if (n.type === 'reward') text = `${n.text ? n.text + ' · ' : ''}${n.xp ? `+${n.xp} XP` : ''}${n.xp && n.coins ? ' · ' : ''}${n.coins ? `+${n.coins} 🪙` : ''}`;
     if (n.type === 'level') text = `⭐ ${n.text}`;
-    setItems((l) => [...l.slice(-3), { id, text, type: n.type }]);
+    setItems((l) => [...l.slice(-1), { id, text, type: n.type }]);
     setTimeout(() => setItems((l) => l.filter((x) => x.id !== id)), n.type === 'level' || n.type === 'achievement' ? 4500 : 2800);
   }), []);
   return <div class="toasts" aria-live="polite">{items.map((t) => <div class={'toast ' + t.type} key={t.id}>{t.text}</div>)}</div>;

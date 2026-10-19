@@ -1,0 +1,4 @@
+{
+ "stdout": "49\n-----\ncompteur=1\ncompteur=2\ncompteur=3\nfib(20)=6765\nmoy=13.50\na=2 b=1\nglobal=101\n",
+ "exitCode": 0
+}

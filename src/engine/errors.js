@@ -3,7 +3,7 @@
 export class CError extends Error {
   /**
    * @param {string} message message en français
-   * @param {{line?:number,col?:number,file?:string,gcc?:string,code?:string}} info
+   * @param {{line?:number,col?:number,file?:string,gcc?:string,code?:string,data?:any}} info
    */
   constructor(message, info = {}) {
     super(message);
@@ -12,6 +12,7 @@ export class CError extends Error {
     this.file = info.file || 'main.c';
     this.gcc = info.gcc || '';
     this.code = info.code || 'error';
+    this.data = info.data;
   }
 }
 

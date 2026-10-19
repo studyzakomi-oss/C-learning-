@@ -1,0 +1,4 @@
+{
+ "stdout": "r=2 a=12 b=30\nr=1 x=3.142\nr=1 c=Z\nr=1 mot=Bonjour\nr=0\nligne=[bc\n]\nsomme=0\nfin r=0\n",
+ "exitCode": 0
+}

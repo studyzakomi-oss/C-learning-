@@ -5,13 +5,17 @@
   "description": "C Quest — L'Académie du Code : jeu éducatif pour apprendre le langage C en français",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:gcc": "node scripts/verify-with-gcc.mjs",
-    "e2e": "node scripts/e2e.mjs"
+    "verify:content": "node scripts/verify-content.mjs",
+    "verify:gcc": "node scripts/diff-gcc.mjs",
+    "e2e": "vite build && node scripts/e2e.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "android:sync": "vite build && npx cap sync android",
+    "android:open": "npx cap open android"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -26,6 +30,9 @@
     "preact": "^11.0.1"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@preact/preset-vite": "^2.10.6",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"

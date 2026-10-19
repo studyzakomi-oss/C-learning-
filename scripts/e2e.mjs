@@ -164,6 +164,60 @@ for (const dev of DEVICES) {
   await ctx.close();
 }
 
+// --- combat de boss complet, déblocage du monde suivant, révision, thème clair ---
+{
+  console.log('\n=== boss + révision + thème clair (téléphone)');
+  const w1 = WORLDS[0];
+  const lessons = Object.fromEntries(w1.lessons.map((l) => [l.id, { step: 9, missionPassed: true, quizBest: 100, missionScore: 90, completedAt: '2026-10-18T10:00:00Z' }]));
+  const cards = Object.fromEntries(w1.lessons[0].quiz.map((_, i) => [`${w1.lessons[0].id}-q${i}`, { box: 1, due: '2020-01-01', seen: 1, good: 1 }]));
+  const save = { version: 1, profile: { name: 'Testeur', onboarded: true, avatar: { color: '#22d3ee', cls: 'mage' } }, xp: 600, coins: 80, lessons, cards, settings: { theme: 'light', editorFontSize: 15, fontScale: 1, bossTimer: true } };
+  const ctx = await browser.newContext({ ...DEVICES[0], locale: 'fr-FR' });
+  await ctx.addInitScript((data) => { if (!sessionStorage.getItem('init')) { localStorage.setItem('cquest.save.v1', data); sessionStorage.setItem('init', '1'); sessionStorage.setItem('cq-resumed', '1'); } }, JSON.stringify(save));
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(BASE + '#/world/w2');
+  await page.waitForTimeout(2200);
+  check(await page.locator('text=Monde verrouillé').count() > 0, 'Monde 2 verrouillé tant que le boss n\'est pas vaincu');
+  await page.goto(BASE + '#/boss/w1');
+  await page.click('button:has-text("Commencer le combat")');
+  // phase 1 : prédiction
+  const p1 = w1.boss.phases[0];
+  const { runC } = await import('../src/engine/index.js');
+  const { normalizeOutput } = await import('../src/game/grader.js');
+  const out = runC(p1.code).stdout;
+  const k = p1.choices.findIndex((c) => normalizeOutput(c) === normalizeOutput(out));
+  await page.locator('.quiz-choice').nth(k).click();
+  await page.click('button:has-text("Valider ma prédiction")');
+  await page.waitForSelector('text=Phase 2/3', { timeout: 10000 });
+  await page.screenshot({ path: 'screenshots/boss-phase2.png' });
+  await setEditor(page, w1.boss.phases[1].solution);
+  await page.click('text=✔ Soumettre');
+  await page.waitForSelector('text=Phase 3/3', { timeout: 10000 });
+  await setEditor(page, w1.boss.phases[2].solution);
+  await page.click('text=✔ Soumettre');
+  await page.waitForSelector('text=Victoire', { timeout: 10000 });
+  await page.screenshot({ path: 'screenshots/boss-victoire.png' });
+  check(true, 'boss du Monde 1 vaincu en 3 phases');
+  await page.goto(BASE + '#/world/w2');
+  await page.waitForTimeout(600);
+  check(await page.locator('text=Variables et Types').count() > 0 && await page.locator('text=Monde verrouillé').count() === 0, 'Monde 2 débloqué après la victoire');
+  await page.goto(BASE + '#/review');
+  await page.click('button:has-text("Réviser")');
+  for (let i = 0; i < w1.lessons[0].quiz.length; i++) {
+    await page.locator('.quiz-choice').first().click();
+    await page.click('button:has-text("Suivant")');
+  }
+  await page.waitForSelector('text=Révision terminée');
+  check(true, 'session de révision espacée terminée');
+  await page.goto(BASE + '#/');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'screenshots/theme-clair-accueil.png' });
+  check(await page.evaluate(() => document.documentElement.dataset.theme) === 'light', 'thème clair appliqué');
+  check(errors.length === 0, `aucune erreur JavaScript${errors.length ? ' : ' + errors.join(' | ') : ''}`);
+  await ctx.close();
+}
+
 await browser.close();
 server.kill();
 console.log(failures ? `\n${failures} échec(s)` : '\nTous les tests de bout en bout passent.');
