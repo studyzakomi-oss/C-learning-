@@ -93,7 +93,7 @@ export function allLessons(worlds) {
 export function isWorldUnlocked(state, worlds, worldId) {
   const idx = worlds.findIndex((w) => w.id === worldId);
   if (idx <= 0) return true;
-  if ((state.placement?.unlockedUpTo ?? 0) > idx) return true;
+  if ((state.placement?.unlockedUpTo ?? 0) >= idx) return true;
   const prev = worlds[idx - 1];
   return !!state.bosses?.[prev.boss.id]?.defeated;
 }

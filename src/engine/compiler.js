@@ -1586,13 +1586,13 @@ export function compileProgram(units, M, diag) {
         const rt = fn.ret;
         if (!node.expr) {
           if (rt.k !== 'void' && fn.name !== 'main') warn(node, `« return; » sans valeur dans la fonction « ${fn.name} » qui doit renvoyer un ${typeName(rt)}`, "'return' with no value, in function returning non-void [-Wreturn-type]", 'return-no-value');
-          return () => { M.line = line; M.retVal = undefined; return RET; };
+          return () => { M.line = line; M.tick(); M.retVal = undefined; return RET; };
         }
         const E = expr(node.expr);
         if (rt.k === 'void') {
           if (E.vt.k !== 'void') error(node, `la fonction « ${fn.name} » est void : elle ne renvoie rien, donc « return valeur; » est interdit (écris seulement return;)`, "'return' with a value, in function returning void", 'return-value-void');
           const g = E.get;
-          return () => { M.line = line; g(); M.retVal = undefined; return RET; };
+          return () => { M.line = line; M.tick(); g(); M.retVal = undefined; return RET; };
         }
         if (rt.k === 'ptr' && E.lv && E.sym && E.sym.storage === 'local' && E.t.k === 'array') {
           warn(node, `la fonction renvoie l'adresse du tableau local « ${E.sym.name} », qui disparaît à la fin de la fonction`, 'function returns address of local variable [-Wreturn-local-addr]', 'return-local-addr');
@@ -1602,7 +1602,7 @@ export function compileProgram(units, M, diag) {
           if (s && s.storage === 'local') warn(node, `la fonction renvoie l'adresse de la variable locale « ${s.name} », qui disparaît à la fin de la fonction`, 'function returns address of local variable [-Wreturn-local-addr]', 'return-local-addr');
         }
         const g = assignConv(rt, E, node.expr, 'dans le return');
-        return () => { M.line = line; M.retVal = g(); return RET; };
+        return () => { M.line = line; M.tick(); M.retVal = g(); return RET; };
       }
     }
     error(node, `instruction non prise en charge (${node.kind})`, 'unsupported statement');
